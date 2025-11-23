@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Laptop Typist</title>
+    <style>
+        :root {
+            --bg: #0b0f14;
+            --card: #121821;
+            --muted: #a7b1c2;
+            --acc: #4bb3fd
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 12px;
+            font-family: Inter, system-ui, Arial, sans-serif;
+            background: #0b0f14;
+            color: #e6edf6
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px
+        }
+
+        @media(min-width:980px) {
+            .container {
+                grid-template-columns: 1fr 380px
+            }
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid #172027
+        }
+
+        label {
+            display: block;
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 6px
+        }
+
+        input[type=number],
+        input[type=text],
+        select,
+        textarea {
+            width: 100%;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid #22303a;
+            background: #071018;
+            color: #e6edf6
+        }
+
+        textarea {
+            min-height: 220px;
+            font-family: ui-monospace, Consolas, monospace;
+            white-space: pre;
+            overflow-wrap: normal
+        }
+
+        .row {
+            margin-bottom: 10px
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap
+        }
+
+        button {
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: none;
+            background: var(--acc);
+            color: #071019;
+            font-weight: 700;
+            cursor: pointer
+        }
+
+        button.ghost {
+            background: transparent;
+            border: 1px solid #22303a;
+            color: #e6edf6
+        }
+
+        .status {
+            font-family: ui-monospace, Consolas, monospace;
+            background: #071018;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #122026;
+            white-space: pre-wrap;
+        }
+
+        .small {
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        .sliderRow {
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .sliderRow input[type=range] {
+            width: 100%
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>Laptop Typist</h1>
+
+            <!-- Helper URL row: user tells us where the helper is running -->
+            <div class="row">
+                <label
+                    title="Where is the helper running? Example: http://192.168.1.23:5000 (target laptop IP + :5000)">
+                    Helper URL
+                </label>
+                <input id="helperUrl" type="text" placeholder="http://192.168.1.23:5000" />
+                <div class="small">
+                    This is the <strong>target laptop</strong> that runs <code>typist_server.py</code>.<br>
+                    Example: <code>http://192.168.1.23:5000</code><br>
+                    (Find the IP on the target laptop, then add <code>:5000</code>.)
+                </div>
+            </div>
+
+            <div class="row">
+                <label title="Paste or type the text you want the laptop helper to send as keyboard input">
+                    Text to type
+                </label>
+                <textarea id="text" placeholder="Paste your code or text here..."></textarea>
+            </div>
+            <div class="row controls">
+                <button onclick="sendText()" title="Send the text to the helper">Type on target</button>
+                <button class="ghost" onclick="applyConfig()" title="Apply current settings">Apply settings</button>
+                <button class="ghost" onclick="getStatus()" title="Refresh status from helper">Status</button>
+                <button class="ghost" onclick="stopTyping()"
+                    title="Immediately stop an in-progress typing job">STOP</button>
+                <button class="ghost" id="playpause" onclick="togglePause()"
+                    title="Pause or resume typing">Play/Pause</button>
+            </div>
+            <div class="row">
+                <div class="status" id="status">Ready.</div>
+            </div>
+
+            <div class="row">
+                <label title="Live WPM slider (1–200). Move it while typing to instantly change speed">Live WPM</label>
+                <div class="sliderRow">
+                    <input id="liveWpmSlider" type="range" min="1" max="200" value="100"
+                        oninput="onLiveWpmChange(this.value)" />
+                    <div class="small" id="liveWpmVal">100 WPM</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Behavior</h2>
+            <div class="row">
+                <label title="Words per minute the device will aim for">WPM (10–300)</label>
+                <input id="wpm" type="number" min="10" max="300" value="100" />
+            </div>
+
+            <div class="row">
+                <label title="Strict mode disables extras (pauses, typos) and aims for exact timing">Strict WPM</label>
+                <select id="strict">
+                    <option value="0">Off</option>
+                    <option value="1">On</option>
+                </select>
+            </div>
+
+            <div class="row">
+                <label title="Random timing variation in percent — higher = more human-like jitter">Jitter (%)</label>
+                <input id="jitter" type="number" min="5" max="45" value="12" />
+            </div>
+
+            <div class="row">
+                <label title="Chance (1 in N) that a thinking pause occurs after a space — set 0 to disable">
+                    Thinking pause (1 in N)
+                </label>
+                <input id="think" type="number" min="0" max="100" value="0" />
+            </div>
+
+            <div class="row">
+                <label title="Enable simulated typos and corrections">Enable typos</label>
+                <select id="typos">
+                    <option value="1">Yes</option>
+                    <option value="0">No</option>
+                </select>
+            </div>
+
+            <div class="row">
+                <label title="Chance of a mistake per character (0–100)">Mistake percent</label>
+                <input id="mistakePct" type="number" min="0" max="100" value="3" />
+            </div>
+
+            <div class="row">
+                <label title="Maximum consecutive mistakes allowed (0 disables consecutive mistakes)">
+                    Consecutive mistakes
+                </label>
+                <input id="consMist" type="number" min="0" max="10" value="1" />
+            </div>
+
+            <div class="row">
+                <label title="Enable occasional longer thinking pauses at spaces">Enable long pauses</label>
+                <select id="lpen">
+                    <option value="1">Yes</option>
+                    <option value="0">No</option>
+                </select>
+            </div>
+
+            <div class="row">
+                <label title="When encountering newlines: keep Enter / replace with space / remove">
+                    Newline handling
+                </label>
+                <select id="nl">
+                    <option value="0">Keep Enter</option>
+                    <option value="1" selected>Replace with space</option>
+                    <option value="2">Remove</option>
+                </select>
+            </div>
+
+            <hr style="border-color:#172027" />
+
+            <h2>Code mode (simple)</h2>
+            <div class="row">
+                <label title="Enable simple Code Mode (ignore spaces at start of line)">Code Mode</label>
+                <select id="codemode">
+                    <option value="0">Off</option>
+                    <option value="1">On</option>
+                </select>
+            </div>
+
+            <div class="small">
+                When Code Mode is ON the typist will skip ALL leading whitespace at the start of each line
+                (spaces, tabs, etc.). Newlines are preserved.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dynamic BASE: where the helper (on the target laptop) is running.
+        // Remembered in localStorage so user doesn't retype the IP every time.
+        let BASE = localStorage.getItem('helperBase') || "http://localhost:5000";
+
+        function setBaseFromInput() {
+            const input = document.getElementById('helperUrl');
+            if (!input) return;
+            let v = input.value.trim();
+            if (!v) {
+                // If empty, keep current BASE (so user can clear without breaking it)
+                input.value = BASE;
+                return;
+            }
+            // Add "http://" if user just typed an IP or hostname
+            if (!v.startsWith("http://") && !v.startsWith("https://")) {
+                v = "http://" + v;
+            }
+            BASE = v;
+            localStorage.setItem('helperBase', BASE);
+            input.value = BASE;
+        }
+
+        async function applyConfig() {
+            const p = new URLSearchParams({
+                wpm: document.getElementById('wpm').value,
+                strict: document.getElementById('strict').value,
+                jitter: document.getElementById('jitter').value,
+                think: document.getElementById('think').value,
+                typos: document.getElementById('typos').value,
+                lpen: document.getElementById('lpen').value,
+                nl: document.getElementById('nl').value,
+                codemode: document.getElementById('codemode').value,
+                lpc: 5,
+                lpmin: 600,
+                lpmax: 1200,
+                cons: document.getElementById('consMist').value,
+                mistakePct: document.getElementById('mistakePct').value
+            });
+            const r = await fetch(BASE + '/config?' + p.toString());
+            const t = await r.text();
+            document.getElementById('status').innerText = t;
+        }
+
+        async function sendText() {
+            await applyConfig();
+            const data = document.getElementById('text').value;
+            if (!data || data.trim() === '') {
+                document.getElementById('status').innerText = 'Nothing to send';
+                return;
+            }
+            document.getElementById('status').innerText = 'Sending...';
+            try {
+                const r = await fetch(BASE + '/type', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: data
+                });
+                const t = await r.text();
+                document.getElementById('status').innerText = t;
+            } catch (e) {
+                document.getElementById('status').innerText = 'Error: ' + e;
+            }
+        }
+
+        async function stopTyping() {
+            try {
+                const r = await fetch(BASE + '/stop');
+                const t = await r.text();
+                document.getElementById('status').innerText = t;
+                getStatus();
+            } catch (e) {
+                document.getElementById('status').innerText = 'Stop error: ' + e;
+            }
+        }
+
+        async function togglePause() {
+            try {
+                const r = await fetch(BASE + '/pause');
+                const t = await r.text();
+                document.getElementById('status').innerText = t;
+                getStatus();
+            } catch (e) {
+                document.getElementById('status').innerText = 'Pause error: ' + e;
+            }
+        }
+
+        // Live WPM slider — same behaviour as ESP32 version
+        let liveWpmTimeout = null;
+        function onLiveWpmChange(v) {
+            document.getElementById('liveWpmVal').innerText = v + ' WPM';
+            if (liveWpmTimeout) clearTimeout(liveWpmTimeout);
+            liveWpmTimeout = setTimeout(() => {
+                fetch(BASE + '/livewpm?wpm=' + encodeURIComponent(v));
+                liveWpmTimeout = null;
+            }, 20);
+        }
+
+        async function getStatus() {
+            try {
+                const r = await fetch(BASE + '/status');
+                const j = await r.json();
+                document.getElementById('status').innerText = JSON.stringify(j, null, 2);
+                document.getElementById('wpm').value = j.wpm;
+                document.getElementById('strict').value = j.strict ? 1 : 0;
+                document.getElementById('jitter').value = j.jitter;
+                document.getElementById('think').value = j.think;
+                document.getElementById('typos').value = j.typos ? 1 : 0;
+                document.getElementById('lpen').value = j.lpen ? 1 : 0;
+                document.getElementById('nl').value = j.nl;
+                document.getElementById('codemode').value = j.codemode ? 1 : 0;
+                document.getElementById('liveWpmSlider').value = j.wpm > 200 ? 200 : j.wpm;
+                document.getElementById('liveWpmVal').innerText =
+                    document.getElementById('liveWpmSlider').value + ' WPM';
+                if (j.mistakePct !== undefined)
+                    document.getElementById('mistakePct').value = j.mistakePct;
+                if (j.cons !== undefined)
+                    document.getElementById('consMist').value = j.cons;
+            } catch (e) {
+                document.getElementById('status').innerText =
+                    'Status error: ' + e +
+                    '\n\nCheck:\n- Is typist_server.py running on the target laptop?\n' +
+                    '- Is the Helper URL pointing to http://TARGET_IP:5000 ?';
+            }
+        }
+
+        function init() {
+            const input = document.getElementById('helperUrl');
+            if (input) {
+                // Prefill from last used BASE
+                input.value = BASE;
+                input.addEventListener('change', () => { setBaseFromInput(); getStatus(); });
+                input.addEventListener('blur', setBaseFromInput);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        setBaseFromInput();
+                        getStatus();
+                    }
+                });
+            }
+            getStatus();
+        }
+
+        window.addEventListener('load', init);
+    </script>
+</body>
+
+</html>

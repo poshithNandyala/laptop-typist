@@ -1,6 +1,14 @@
 @echo off
-REM Start the Laptop Typist web UI server in the background (no console window)
+echo Starting UI server...
 
-cd /d "%~dp0web-ui"
+REM Change to folder of THIS BAT file
+cd /d "%~dp0"
+cd web-ui
 
-start "" pythonw.exe -m http.server 8000
+REM Kill anything using port 8000
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8000') do (
+    taskkill /PID %%a /F >nul 2>&1
+)
+
+start "UI Server" cmd /k "python server.py"
+exit

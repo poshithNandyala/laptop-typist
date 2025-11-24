@@ -1,7 +1,13 @@
 @echo off
-REM Start the Laptop Typist helper in the background (no console window)
+echo Starting Helper server...
 
-REM %~dp0 = folder where this .bat lives
-cd /d "%~dp0helper"
+cd /d "%~dp0"
+cd helper
 
-start "" pythonw.exe typist_server.py
+REM Kill anything using port 5000
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5000') do (
+    taskkill /PID %%a /F >nul 2>&1
+)
+
+start "Helper Server" cmd /k "python typist_server.py"
+exit

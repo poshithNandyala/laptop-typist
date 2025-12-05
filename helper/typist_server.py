@@ -2,9 +2,16 @@
 import time
 import random
 import threading
+import sys
+import os
 
 from flask import Flask, request, jsonify, Response
 from pynput.keyboard import Controller, Key
+
+# Redirect stdout/stderr to null for pythonw compatibility
+if sys.executable.endswith('pythonw.exe'):
+    sys.stdout = open(os.devnull, 'w')
+    sys.stderr = open(os.devnull, 'w')
 
 app = Flask(__name__)
 keyboard = Controller()
@@ -432,6 +439,7 @@ def handle_pause():
 
 # ---------- main ----------
 if __name__ == "__main__":
-    print("Laptop Typist helper running on http://0.0.0.0:5000")
-    print("Keep this window open while using the web UI.")
-    app.run(host="0.0.0.0", port=5000)
+    import logging
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)
+    app.run(host="0.0.0.0", port=5000, threaded=True)

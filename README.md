@@ -86,8 +86,8 @@ On the **Target Laptop** (where typing will happen):
 
 **2.3 — Start the program:**
 - Open the `laptop-typist` folder
-- **Double-click `start.bat`**
-- Two black windows will open — **keep them open!**
+- **Double-click `start.vbs`** (runs silently in background — no windows!)
+- The servers start automatically in the background
 
 ---
 
@@ -113,8 +113,7 @@ On the **Control Laptop** (where YOU sit):
 ### Step 5: Stop the Program
 
 On the **Target Laptop**:
-- Close the two black terminal windows, OR
-- Double-click `stop.bat`
+- **Double-click `stop.vbs`** (runs silently — stops all background servers)
 
 ---
 
@@ -158,10 +157,10 @@ On the **Target Laptop**:
 - Try: `python -m pip install flask pynput`
 
 ### "Address already in use"
-- Run `stop.bat` first, then `start.bat` again
+- Run `stop.vbs` first, then `start.vbs` again
 
 ### "Connection refused" or "Took too long to respond"
-- Make sure both terminal windows are open and running
+- Make sure you ran `start.vbs` (servers run in background)
 - Check if ports 5000 and 8000 are allowed through firewall
 - Try `http://127.0.0.1:8000` instead of `localhost:8000`
 
@@ -181,8 +180,10 @@ On the **Target Laptop**:
 ```
 laptop-typist/
 │
-├── start.bat              ← Double-click to start
-├── stop.bat               ← Double-click to stop
+├── start.vbs              ← Double-click to start (silent, no window)
+├── stop.vbs               ← Double-click to stop (silent, no window)
+├── start.bat              ← Batch script (used by start.vbs)
+├── stop.bat               ← Batch script (used by stop.vbs)
 ├── README.md              ← This file
 │
 ├── helper/

@@ -1,406 +1,604 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laptop Typist</title>
     <style>
-        :root {
-            --bg: #0b0f14;
-            --card: #121821;
-            --muted: #a7b1c2;
-            --acc: #4bb3fd
-        }
-
-        * {
-            box-sizing: border-box
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            margin: 12px;
-            font-family: Inter, system-ui, Arial, sans-serif;
-            background: #0b0f14;
-            color: #e6edf6
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            padding: 20px;
+            line-height: 1.5;
         }
-
         .container {
-            max-width: 1100px;
+            max-width: 900px;
             margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 14px
         }
-
-        @media(min-width:980px) {
-            .container {
-                grid-template-columns: 1fr 380px
-            }
-        }
-
-        .card {
-            background: var(--card);
-            border-radius: 12px;
-            padding: 12px;
-            border: 1px solid #172027
-        }
-
-        label {
-            display: block;
-            color: var(--muted);
-            font-size: 13px;
-            margin-bottom: 6px
-        }
-
-        input[type=number],
-        input[type=text],
-        select,
-        textarea {
-            width: 100%;
-            padding: 8px;
-            border-radius: 8px;
-            border: 1px solid #22303a;
-            background: #071018;
-            color: #e6edf6
-        }
-
-        textarea {
-            min-height: 220px;
-            font-family: ui-monospace, Consolas, monospace;
-            white-space: pre;
-            overflow-wrap: normal
-        }
-
-        .row {
-            margin-bottom: 10px
-        }
-
-        .controls {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap
-        }
-
-        button {
-            padding: 8px 12px;
-            border-radius: 999px;
-            border: none;
-            background: var(--acc);
-            color: #071019;
-            font-weight: 700;
-            cursor: pointer
-        }
-
-        button.ghost {
-            background: transparent;
-            border: 1px solid #22303a;
-            color: #e6edf6
-        }
-
-        .status {
-            font-family: ui-monospace, Consolas, monospace;
-            background: #071018;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #122026;
-            white-space: pre-wrap;
-        }
-
-        .small {
-            font-size: 12px;
-            color: var(--muted)
-        }
-
-        .sliderRow {
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
             display: flex;
             align-items: center;
-            gap: 8px
+            gap: 12px;
         }
-
-        .sliderRow input[type=range] {
-            width: 100%
+        .badge {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        .badge.success { background: #238636; }
+        .badge.warning { background: #9e6a03; }
+        
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .card h2 {
+            font-size: 16px;
+            margin-bottom: 16px;
+            color: #58a6ff;
+        }
+        
+        label {
+            display: block;
+            font-size: 13px;
+            color: #8b949e;
+            margin-bottom: 6px;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #e6edf3;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        textarea {
+            min-height: 150px;
+            font-family: 'Consolas', monospace;
+            resize: vertical;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        .btn-primary { background: #238636; color: white; }
+        .btn-primary:hover { background: #2ea043; }
+        .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+        .btn-secondary:hover { background: #30363d; }
+        .btn-danger { background: #da3633; color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .sample-box {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 16px;
+            font-family: 'Consolas', monospace;
+            font-size: 15px;
+            line-height: 1.8;
+            margin-bottom: 12px;
+            color: #8b949e;
+        }
+        .sample-box .typed { color: #58a6ff; }
+        .sample-box .cursor { 
+            background: #58a6ff; 
+            color: #0d1117;
+            padding: 0 2px;
+        }
+        
+        .progress {
+            height: 4px;
+            background: #21262d;
+            border-radius: 2px;
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #238636;
+            transition: width 0.2s;
+        }
+        
+        .wpm-control {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: #21262d;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .wpm-control input[type="range"] {
+            flex: 1;
+            margin: 0;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #30363d;
+            border-radius: 3px;
+            border: none;
+        }
+        .wpm-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #58a6ff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .wpm-display {
+            font-size: 28px;
+            font-weight: 600;
+            color: #58a6ff;
+            min-width: 100px;
+            text-align: center;
+        }
+        
+        .status-box {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            color: #8b949e;
+            white-space: pre-wrap;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        @media (max-width: 600px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+        
+        .step-indicator {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .step {
+            flex: 1;
+            padding: 12px;
+            background: #21262d;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 13px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .step.active {
+            border-color: #58a6ff;
+            background: #161b22;
+        }
+        .step.done {
+            border-color: #238636;
+        }
+        .step-num {
+            font-weight: 600;
+            color: #58a6ff;
+        }
+        
+        .hidden { display: none; }
+        
+        .info {
+            font-size: 12px;
+            color: #8b949e;
+            margin-top: -8px;
+            margin-bottom: 12px;
         }
     </style>
 </head>
-
 <body>
     <div class="container">
+        <h1>
+            ⌨️ Laptop Typist
+            <span class="badge warning" id="calibBadge">Not Calibrated</span>
+        </h1>
+        
+        <!-- Connection -->
         <div class="card">
-            <h1>Laptop Typist</h1>
-
-            <!-- Helper URL row: user tells us where the helper is running -->
-            <div class="row">
-                <label
-                    title="Where is the helper running? Example: http://192.168.1.23:5000 (target laptop IP + :5000)">
-                    Helper URL
-                </label>
-                <input id="helperUrl" type="text" placeholder="http://192.168.1.23:5000" />
-                <div class="small">
-                    This is the <strong>target laptop</strong> that runs <code>typist_server.py</code>.<br>
-                    Example: <code>http://192.168.1.23:5000</code><br>
-                    (Find the IP on the target laptop, then add <code>:5000</code>.)
-                </div>
+            <label>Target Laptop Helper URL</label>
+            <input type="text" id="helperUrl" placeholder="http://192.168.1.50:5000">
+            <div class="info">Enter the IP of the laptop running start.bat (find with ipconfig command)</div>
+        </div>
+        
+        <!-- Steps -->
+        <div class="step-indicator">
+            <div class="step active" id="step1" onclick="showStep(1)">
+                <div class="step-num">Step 1</div>
+                Calibrate
             </div>
-
-            <div class="row">
-                <label title="Paste or type the text you want the laptop helper to send as keyboard input">
-                    Text to type
-                </label>
-                <textarea id="text" placeholder="Paste your code or text here..."></textarea>
-            </div>
-            <div class="row controls">
-                <button onclick="sendText()" title="Send the text to the helper">Type on target</button>
-                <button class="ghost" onclick="applyConfig()" title="Apply current settings">Apply settings</button>
-                <button class="ghost" onclick="getStatus()" title="Refresh status from helper">Status</button>
-                <button class="ghost" onclick="stopTyping()"
-                    title="Immediately stop an in-progress typing job">STOP</button>
-                <button class="ghost" id="playpause" onclick="togglePause()"
-                    title="Pause or resume typing">Play/Pause</button>
-            </div>
-            <div class="row">
-                <div class="status" id="status">Ready.</div>
-            </div>
-
-            <div class="row">
-                <label title="Live WPM slider (1–200). Move it while typing to instantly change speed">Live WPM</label>
-                <div class="sliderRow">
-                    <input id="liveWpmSlider" type="range" min="1" max="200" value="100"
-                        oninput="onLiveWpmChange(this.value)" />
-                    <div class="small" id="liveWpmVal">100 WPM</div>
-                </div>
+            <div class="step" id="step2" onclick="showStep(2)">
+                <div class="step-num">Step 2</div>
+                Type
             </div>
         </div>
-
-        <div class="card">
-            <h2>Behavior</h2>
-            <div class="row">
-                <label title="Words per minute the device will aim for">WPM (10–300)</label>
-                <input id="wpm" type="number" min="10" max="300" value="100" />
+        
+        <!-- STEP 1: CALIBRATION -->
+        <div id="panel1">
+            <div class="card">
+                <h2>🎯 Calibrate Your Typing Pattern</h2>
+                <p style="margin-bottom: 16px; color: #8b949e;">
+                    Type the text below naturally. This captures YOUR typing rhythm so the bot types exactly like you.
+                </p>
+                
+                <div class="sample-box" id="sampleDisplay"></div>
+                
+                <div class="progress">
+                    <div class="progress-bar" id="calibProgress" style="width: 0%"></div>
+                </div>
+                
+                <label>Type here:</label>
+                <textarea id="calibInput" placeholder="Start typing the text above..."></textarea>
+                
+                <div id="calibStatus" style="margin-bottom: 12px; color: #8b949e; font-size: 13px;">
+                    Type at least 30 characters to calibrate
+                </div>
+                
+                <button class="btn btn-primary" id="saveCalibBtn" onclick="saveCalibration()" disabled>
+                    ✓ Save My Typing Pattern
+                </button>
+                <button class="btn btn-secondary" onclick="newSample()">New Text</button>
+                <button class="btn btn-secondary" onclick="resetCalib()">Reset</button>
             </div>
-
-            <div class="row">
-                <label title="Strict mode disables extras (pauses, typos) and aims for exact timing">Strict WPM</label>
-                <select id="strict">
-                    <option value="0">Off</option>
-                    <option value="1">On</option>
-                </select>
+        </div>
+        
+        <!-- STEP 2: TYPING -->
+        <div id="panel2" class="hidden">
+            <div class="card">
+                <h2>⚡ WPM Speed Control</h2>
+                <div class="wpm-control">
+                    <span style="color: #8b949e;">Slow</span>
+                    <input type="range" id="wpmSlider" min="20" max="200" value="80">
+                    <span style="color: #8b949e;">Fast</span>
+                    <div class="wpm-display"><span id="wpmValue">80</span></div>
+                </div>
+                <div class="info">Drag to change speed anytime - even while typing!</div>
             </div>
-
-            <div class="row">
-                <label title="Random timing variation in percent — higher = more human-like jitter">Jitter (%)</label>
-                <input id="jitter" type="number" min="5" max="45" value="12" />
+            
+            <div class="card">
+                <h2>📝 Text to Type</h2>
+                <label>Paste the text you want typed on the target laptop:</label>
+                <textarea id="typeText" placeholder="Paste your text here..."></textarea>
+                
+                <button class="btn btn-primary" onclick="startTyping()">⌨️ Start Typing</button>
+                <button class="btn btn-secondary" onclick="pauseTyping()">⏸ Pause</button>
+                <button class="btn btn-danger" onclick="stopTyping()">⏹ Stop</button>
+                <button class="btn btn-secondary" onclick="getStatus()">↻ Status</button>
+                
+                <div class="status-box" id="statusBox" style="margin-top: 12px;">Ready</div>
             </div>
-
-            <div class="row">
-                <label title="Chance (1 in N) that a thinking pause occurs after a space — set 0 to disable">
-                    Thinking pause (1 in N)
-                </label>
-                <input id="think" type="number" min="0" max="100" value="0" />
-            </div>
-
-            <div class="row">
-                <label title="Enable simulated typos and corrections">Enable typos</label>
-                <select id="typos">
-                    <option value="1">Yes</option>
-                    <option value="0">No</option>
-                </select>
-            </div>
-
-            <div class="row">
-                <label title="Chance of a mistake per character (0–100)">Mistake percent</label>
-                <input id="mistakePct" type="number" min="0" max="100" value="3" />
-            </div>
-
-            <div class="row">
-                <label title="Maximum consecutive mistakes allowed (0 disables consecutive mistakes)">
-                    Consecutive mistakes
-                </label>
-                <input id="consMist" type="number" min="0" max="10" value="1" />
-            </div>
-
-            <div class="row">
-                <label title="Enable occasional longer thinking pauses at spaces">Enable long pauses</label>
-                <select id="lpen">
-                    <option value="1">Yes</option>
-                    <option value="0">No</option>
-                </select>
-            </div>
-
-            <div class="row">
-                <label title="When encountering newlines: keep Enter / replace with space / remove">
-                    Newline handling
-                </label>
-                <select id="nl">
-                    <option value="0">Keep Enter</option>
-                    <option value="1" selected>Replace with space</option>
-                    <option value="2">Remove</option>
-                </select>
-            </div>
-
-            <hr style="border-color:#172027" />
-
-            <h2>Code mode (simple)</h2>
-            <div class="row">
-                <label title="Enable simple Code Mode (ignore spaces at start of line)">Code Mode</label>
-                <select id="codemode">
-                    <option value="0">Off</option>
-                    <option value="1">On</option>
-                </select>
-            </div>
-
-            <div class="small">
-                When Code Mode is ON the typist will skip ALL leading whitespace at the start of each line
-                (spaces, tabs, etc.). Newlines are preserved.
+            
+            <div class="card">
+                <h2>⚙️ Options</h2>
+                <div class="grid-2">
+                    <div>
+                        <label>Typos (realistic mistakes)</label>
+                        <select id="typosEnabled">
+                            <option value="1">Enabled (recommended)</option>
+                            <option value="0">Disabled</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Typo frequency (%)</label>
+                        <input type="number" id="typoPct" value="2" min="0" max="10">
+                    </div>
+                    <div>
+                        <label>Newlines</label>
+                        <select id="newlineMode">
+                            <option value="0">Keep as Enter</option>
+                            <option value="1" selected>Replace with Space</option>
+                            <option value="2">Remove</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Code Mode</label>
+                        <select id="codeMode">
+                            <option value="0">Off</option>
+                            <option value="1">On (skip leading spaces)</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" onclick="applySettings()" style="margin-top: 8px;">
+                    Apply Settings
+                </button>
             </div>
         </div>
     </div>
 
     <script>
-        // Dynamic BASE: where the helper (on the target laptop) is running.
-        // Remembered in localStorage so user doesn't retype the IP every time.
-        let BASE = localStorage.getItem('helperBase') || "http://localhost:5000";
-
-        function setBaseFromInput() {
-            const input = document.getElementById('helperUrl');
-            if (!input) return;
-            let v = input.value.trim();
-            if (!v) {
-                // If empty, keep current BASE (so user can clear without breaking it)
-                input.value = BASE;
-                return;
-            }
-            // Add "http://" if user just typed an IP or hostname
-            if (!v.startsWith("http://") && !v.startsWith("https://")) {
-                v = "http://" + v;
-            }
+        // Sample texts
+        const SAMPLES = [
+            "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.",
+            "How vexingly quick daft zebras jump! The five boxing wizards jump quickly.",
+            "Sphinx of black quartz, judge my vow. Two driven jocks help fax my quiz.",
+            "A wizard's job is to vex chumps quickly in fog. Crazy Frederick bought many jewels.",
+            "The job requires extra pluck and zeal from every young wage earner today."
+        ];
+        
+        let BASE = localStorage.getItem('helperUrl') || 'http://localhost:5000';
+        let currentSample = '';
+        let calibData = { holdTimes: [], flightTimes: [], digraphs: {}, lastKeyDown: 0, lastKeyUp: 0, lastChar: '' };
+        
+        // Initialize
+        document.getElementById('helperUrl').value = BASE;
+        document.getElementById('helperUrl').addEventListener('change', (e) => {
+            let v = e.target.value.trim();
+            if (v && !v.startsWith('http')) v = 'http://' + v;
             BASE = v;
-            localStorage.setItem('helperBase', BASE);
-            input.value = BASE;
+            localStorage.setItem('helperUrl', BASE);
+            e.target.value = BASE;
+        });
+        
+        // WPM Slider
+        const wpmSlider = document.getElementById('wpmSlider');
+        const wpmValue = document.getElementById('wpmValue');
+        let wpmTimeout = null;
+        
+        wpmSlider.addEventListener('input', () => {
+            wpmValue.textContent = wpmSlider.value;
+            if (wpmTimeout) clearTimeout(wpmTimeout);
+            wpmTimeout = setTimeout(() => {
+                fetch(`${BASE}/setwpm?wpm=${wpmSlider.value}`).catch(() => {});
+            }, 50);
+        });
+        
+        // Step navigation
+        function showStep(n) {
+            document.getElementById('panel1').classList.toggle('hidden', n !== 1);
+            document.getElementById('panel2').classList.toggle('hidden', n !== 2);
+            document.getElementById('step1').classList.toggle('active', n === 1);
+            document.getElementById('step2').classList.toggle('active', n === 2);
         }
-
-        async function applyConfig() {
-            const p = new URLSearchParams({
-                wpm: document.getElementById('wpm').value,
-                strict: document.getElementById('strict').value,
-                jitter: document.getElementById('jitter').value,
-                think: document.getElementById('think').value,
-                typos: document.getElementById('typos').value,
-                lpen: document.getElementById('lpen').value,
-                nl: document.getElementById('nl').value,
-                codemode: document.getElementById('codemode').value,
-                lpc: 5,
-                lpmin: 600,
-                lpmax: 1200,
-                cons: document.getElementById('consMist').value,
-                mistakePct: document.getElementById('mistakePct').value
-            });
-            const r = await fetch(BASE + '/config?' + p.toString());
-            const t = await r.text();
-            document.getElementById('status').innerText = t;
+        
+        // Calibration
+        function newSample() {
+            currentSample = SAMPLES[Math.floor(Math.random() * SAMPLES.length)];
+            updateSampleDisplay();
+            resetCalib();
         }
-
-        async function sendText() {
-            await applyConfig();
-            const data = document.getElementById('text').value;
-            if (!data || data.trim() === '') {
-                document.getElementById('status').innerText = 'Nothing to send';
+        
+        function updateSampleDisplay() {
+            const typed = document.getElementById('calibInput').value;
+            let html = '';
+            for (let i = 0; i < currentSample.length; i++) {
+                if (i < typed.length) {
+                    html += `<span class="typed">${escapeHtml(currentSample[i])}</span>`;
+                } else if (i === typed.length) {
+                    html += `<span class="cursor">${escapeHtml(currentSample[i])}</span>`;
+                } else {
+                    html += escapeHtml(currentSample[i]);
+                }
+            }
+            document.getElementById('sampleDisplay').innerHTML = html;
+        }
+        
+        function escapeHtml(c) {
+            if (c === ' ') return '&nbsp;';
+            if (c === '<') return '&lt;';
+            if (c === '>') return '&gt;';
+            return c;
+        }
+        
+        function resetCalib() {
+            calibData = { holdTimes: [], flightTimes: [], digraphs: {}, lastKeyDown: 0, lastKeyUp: 0, lastChar: '' };
+            document.getElementById('calibInput').value = '';
+            document.getElementById('calibProgress').style.width = '0%';
+            document.getElementById('calibStatus').textContent = 'Type at least 30 characters to calibrate';
+            document.getElementById('saveCalibBtn').disabled = true;
+            updateSampleDisplay();
+        }
+        
+        // Capture keystrokes
+        document.getElementById('calibInput').addEventListener('keydown', (e) => {
+            if (e.key.length === 1 || e.key === 'Backspace') {
+                const now = performance.now();
+                
+                // Flight time (since last key up)
+                if (calibData.lastKeyUp > 0) {
+                    const flight = now - calibData.lastKeyUp;
+                    if (flight > 10 && flight < 1500) {
+                        calibData.flightTimes.push(flight);
+                        
+                        // Digraph
+                        if (calibData.lastChar && e.key.length === 1) {
+                            const di = calibData.lastChar.toLowerCase() + e.key.toLowerCase();
+                            if (!calibData.digraphs[di]) calibData.digraphs[di] = [];
+                            calibData.digraphs[di].push(flight);
+                        }
+                    }
+                }
+                calibData.lastKeyDown = now;
+            }
+        });
+        
+        document.getElementById('calibInput').addEventListener('keyup', (e) => {
+            if (e.key.length === 1 || e.key === 'Backspace') {
+                const now = performance.now();
+                
+                // Hold time
+                if (calibData.lastKeyDown > 0) {
+                    const hold = now - calibData.lastKeyDown;
+                    if (hold > 10 && hold < 400) {
+                        calibData.holdTimes.push(hold);
+                    }
+                }
+                
+                calibData.lastKeyUp = now;
+                if (e.key.length === 1) calibData.lastChar = e.key;
+            }
+        });
+        
+        document.getElementById('calibInput').addEventListener('input', () => {
+            updateSampleDisplay();
+            
+            const typed = document.getElementById('calibInput').value;
+            const progress = Math.min(100, (typed.length / currentSample.length) * 100);
+            document.getElementById('calibProgress').style.width = progress + '%';
+            
+            const count = calibData.holdTimes.length;
+            if (count >= 30) {
+                document.getElementById('calibStatus').textContent = 
+                    `✓ Captured ${count} keystrokes. Ready to save!`;
+                document.getElementById('saveCalibBtn').disabled = false;
+            } else {
+                document.getElementById('calibStatus').textContent = 
+                    `${count}/30 keystrokes captured...`;
+            }
+        });
+        
+        async function saveCalibration() {
+            if (calibData.holdTimes.length < 10) {
+                alert('Please type more to capture your pattern');
                 return;
             }
-            document.getElementById('status').innerText = 'Sending...';
+            
             try {
-                const r = await fetch(BASE + '/type', {
+                document.getElementById('calibStatus').textContent = 'Saving...';
+                
+                const resp = await fetch(`${BASE}/calibrate`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: data
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        holdTimes: calibData.holdTimes,
+                        flightTimes: calibData.flightTimes,
+                        digraphs: calibData.digraphs
+                    })
                 });
-                const t = await r.text();
-                document.getElementById('status').innerText = t;
+                
+                const data = await resp.json();
+                
+                if (data.success) {
+                    document.getElementById('calibBadge').className = 'badge success';
+                    document.getElementById('calibBadge').textContent = '✓ Calibrated';
+                    document.getElementById('step1').classList.add('done');
+                    document.getElementById('calibStatus').textContent = 
+                        `Saved! Your base speed: ${data.baseWpm} WPM, ${data.digraphs} patterns learned`;
+                    
+                    // Set slider to detected WPM
+                    wpmSlider.value = Math.round(data.baseWpm);
+                    wpmValue.textContent = wpmSlider.value;
+                    
+                    setTimeout(() => showStep(2), 1000);
+                } else {
+                    document.getElementById('calibStatus').textContent = 'Error saving';
+                }
             } catch (e) {
-                document.getElementById('status').innerText = 'Error: ' + e;
+                document.getElementById('calibStatus').textContent = 'Connection error: ' + e.message;
             }
         }
-
+        
+        // Typing controls
+        async function applySettings() {
+            const params = new URLSearchParams({
+                wpm: wpmSlider.value,
+                typos: document.getElementById('typosEnabled').value,
+                typoPct: document.getElementById('typoPct').value,
+                nl: document.getElementById('newlineMode').value,
+                codemode: document.getElementById('codeMode').value
+            });
+            
+            try {
+                await fetch(`${BASE}/config?${params}`);
+                document.getElementById('statusBox').textContent = 'Settings applied';
+            } catch (e) {
+                document.getElementById('statusBox').textContent = 'Error: ' + e.message;
+            }
+        }
+        
+        async function startTyping() {
+            const text = document.getElementById('typeText').value;
+            if (!text.trim()) {
+                document.getElementById('statusBox').textContent = 'No text to type';
+                return;
+            }
+            
+            await applySettings();
+            
+            try {
+                document.getElementById('statusBox').textContent = 'Starting... Click on target window NOW!';
+                
+                const resp = await fetch(`${BASE}/type`, {
+                    method: 'POST',
+                    body: text
+                });
+                const result = await resp.text();
+                document.getElementById('statusBox').textContent = result;
+            } catch (e) {
+                document.getElementById('statusBox').textContent = 'Error: ' + e.message;
+            }
+        }
+        
         async function stopTyping() {
             try {
-                const r = await fetch(BASE + '/stop');
-                const t = await r.text();
-                document.getElementById('status').innerText = t;
-                getStatus();
+                const resp = await fetch(`${BASE}/stop`);
+                document.getElementById('statusBox').textContent = await resp.text();
             } catch (e) {
-                document.getElementById('status').innerText = 'Stop error: ' + e;
+                document.getElementById('statusBox').textContent = 'Error: ' + e.message;
             }
         }
-
-        async function togglePause() {
+        
+        async function pauseTyping() {
             try {
-                const r = await fetch(BASE + '/pause');
-                const t = await r.text();
-                document.getElementById('status').innerText = t;
-                getStatus();
+                const resp = await fetch(`${BASE}/pause`);
+                document.getElementById('statusBox').textContent = await resp.text();
             } catch (e) {
-                document.getElementById('status').innerText = 'Pause error: ' + e;
+                document.getElementById('statusBox').textContent = 'Error: ' + e.message;
             }
         }
-
-        // Live WPM slider — same behaviour as ESP32 version
-        let liveWpmTimeout = null;
-        function onLiveWpmChange(v) {
-            document.getElementById('liveWpmVal').innerText = v + ' WPM';
-            if (liveWpmTimeout) clearTimeout(liveWpmTimeout);
-            liveWpmTimeout = setTimeout(() => {
-                fetch(BASE + '/livewpm?wpm=' + encodeURIComponent(v));
-                liveWpmTimeout = null;
-            }, 20);
-        }
-
+        
         async function getStatus() {
             try {
-                const r = await fetch(BASE + '/status');
-                const j = await r.json();
-                document.getElementById('status').innerText = JSON.stringify(j, null, 2);
-                document.getElementById('wpm').value = j.wpm;
-                document.getElementById('strict').value = j.strict ? 1 : 0;
-                document.getElementById('jitter').value = j.jitter;
-                document.getElementById('think').value = j.think;
-                document.getElementById('typos').value = j.typos ? 1 : 0;
-                document.getElementById('lpen').value = j.lpen ? 1 : 0;
-                document.getElementById('nl').value = j.nl;
-                document.getElementById('codemode').value = j.codemode ? 1 : 0;
-                document.getElementById('liveWpmSlider').value = j.wpm > 200 ? 200 : j.wpm;
-                document.getElementById('liveWpmVal').innerText =
-                    document.getElementById('liveWpmSlider').value + ' WPM';
-                if (j.mistakePct !== undefined)
-                    document.getElementById('mistakePct').value = j.mistakePct;
-                if (j.cons !== undefined)
-                    document.getElementById('consMist').value = j.cons;
+                const resp = await fetch(`${BASE}/status`);
+                const data = await resp.json();
+                document.getElementById('statusBox').textContent = JSON.stringify(data, null, 2);
+                
+                if (data.calibrated) {
+                    document.getElementById('calibBadge').className = 'badge success';
+                    document.getElementById('calibBadge').textContent = '✓ Calibrated';
+                    document.getElementById('step1').classList.add('done');
+                }
+                
+                wpmSlider.value = data.wpm;
+                wpmValue.textContent = data.wpm;
             } catch (e) {
-                document.getElementById('status').innerText =
-                    'Status error: ' + e +
-                    '\n\nCheck:\n- Is typist_server.py running on the target laptop?\n' +
-                    '- Is the Helper URL pointing to http://TARGET_IP:5000 ?';
+                document.getElementById('statusBox').textContent = 
+                    'Cannot connect to helper.\n\n' +
+                    'Check:\n' +
+                    '1. Is start.bat running on target laptop?\n' +
+                    '2. Is the Helper URL correct?\n' +
+                    '3. Are both laptops on same WiFi?';
             }
         }
-
-        function init() {
-            const input = document.getElementById('helperUrl');
-            if (input) {
-                // Prefill from last used BASE
-                input.value = BASE;
-                input.addEventListener('change', () => { setBaseFromInput(); getStatus(); });
-                input.addEventListener('blur', setBaseFromInput);
-                input.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        setBaseFromInput();
-                        getStatus();
-                    }
-                });
-            }
-            getStatus();
-        }
-
-        window.addEventListener('load', init);
+        
+        // Init
+        newSample();
+        getStatus();
     </script>
 </body>
-
 </html>

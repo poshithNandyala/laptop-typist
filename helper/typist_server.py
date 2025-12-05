@@ -2,6 +2,8 @@
 import time
 import random
 import threading
+import statistics
+import json
 
 from flask import Flask, request, jsonify, Response
 from pynput.keyboard import Controller, Key
@@ -9,7 +11,7 @@ from pynput.keyboard import Controller, Key
 app = Flask(__name__)
 keyboard = Controller()
 
-# ---------- CORS: allow calls from any frontend (GitHub Pages, etc.) ----------
+# ---------- CORS ----------
 @app.after_request
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
@@ -17,421 +19,387 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return response
 
-# ---------- Runtime config (defaults) ----------
-configuredWPM = 100
-strictWPM = False
-jitterStrengthPct = 12
-thinkingSpaceChance = 0
-mistakePercent = 3
-enableTypos = True
-enableLongPauses = True
-longPausePercent = 5
-longPauseMinMs = 600
-longPauseMaxMs = 1200
-newlineMode = 1  # 0 keep,1 space,2 remove
-extraPunctPause = True
+# ---------- User's Typing Profile ----------
+class TypingProfile:
+    def __init__(self):
+        self.calibrated = False
+        self.base_wpm = 60  # WPM detected during calibration
+        
+        # Raw captured data
+        self.hold_times = []      # Key hold durations
+        self.flight_times = []    # Time between keys
+        self.digraph_times = {}   # "ab" -> [times]
+        
+        # Computed stats
+        self.hold_mean = 85
+        self.hold_std = 25
+        self.flight_mean = 150
+        self.flight_std = 50
+        
+        # Character-specific delays (relative to mean)
+        self.char_factors = {}    # 'a' -> 0.9 means 10% faster
+        
+    def compute_stats(self):
+        if len(self.hold_times) > 5:
+            self.hold_mean = statistics.mean(self.hold_times)
+            self.hold_std = statistics.stdev(self.hold_times) if len(self.hold_times) > 1 else self.hold_mean * 0.3
+        
+        if len(self.flight_times) > 5:
+            self.flight_mean = statistics.mean(self.flight_times)
+            self.flight_std = statistics.stdev(self.flight_times) if len(self.flight_times) > 1 else self.flight_mean * 0.35
+            # Estimate base WPM from flight time
+            # Average 5 chars per word, so WPM = 60000 / (flight_mean * 5)
+            self.base_wpm = 60000 / (self.flight_mean * 5)
+        
+        # Compute digraph means
+        for digraph, times in self.digraph_times.items():
+            if len(times) >= 2:
+                self.digraph_times[digraph] = statistics.mean(times)
+            elif len(times) == 1:
+                self.digraph_times[digraph] = times[0]
+    
+    def get_hold_time(self, target_wpm):
+        """Get a hold time scaled to target WPM."""
+        scale = self.base_wpm / max(target_wpm, 10)
+        base = random.gauss(self.hold_mean, self.hold_std)
+        scaled = base * scale
+        return max(20, min(300, scaled))
+    
+    def get_flight_time(self, prev_char, curr_char, target_wpm):
+        """Get flight time between two characters, scaled to target WPM."""
+        scale = self.base_wpm / max(target_wpm, 10)
+        
+        # Check for digraph-specific timing
+        digraph = (prev_char + curr_char).lower()
+        if digraph in self.digraph_times and isinstance(self.digraph_times[digraph], (int, float)):
+            base = self.digraph_times[digraph]
+            # Add small variation
+            base = random.gauss(base, base * 0.15)
+        else:
+            base = random.gauss(self.flight_mean, self.flight_std)
+        
+        scaled = base * scale
+        return max(15, min(1000, scaled))
+    
+    def get_space_pause(self, target_wpm):
+        """Pause after space - slightly longer."""
+        scale = self.base_wpm / max(target_wpm, 10)
+        base = self.flight_mean * 1.4
+        return max(30, random.gauss(base, base * 0.3) * scale)
+    
+    def get_punct_pause(self, target_wpm):
+        """Pause after punctuation - longer."""
+        scale = self.base_wpm / max(target_wpm, 10)
+        base = self.flight_mean * 2.2
+        return max(50, random.gauss(base, base * 0.3) * scale)
 
-# Code mode (simple)
-codeMode = False
+profile = TypingProfile()
 
-# Consecutive mistakes
-consecutiveMistakeLimit = 1
-consecutiveMistakeCount = 0
+# ---------- Runtime Settings ----------
+target_wpm = 80
+enable_typos = True
+typo_percent = 2
+newline_mode = 1  # 0=keep, 1=space, 2=remove
+code_mode = False
 
 # Runtime state
-typingActive = False
-paused = False
-typedChars = 0
-
-# Thread + lock
+typing_active = False
+is_paused = False
+typed_count = 0
 typing_thread = None
-state_lock = threading.Lock()
+lock = threading.Lock()
 
-# ---------- Utilities ----------
-def clamp_int(v, a, b):
-    return max(a, min(b, v))
+# ---------- Keyboard Helpers ----------
+NEARBY_KEYS = {
+    'q': 'was', 'w': 'qesa', 'e': 'wrds', 'r': 'etfd', 't': 'ryfg',
+    'y': 'tuhg', 'u': 'yijh', 'i': 'uokj', 'o': 'iplk', 'p': 'ol',
+    'a': 'qwsz', 's': 'awedxz', 'd': 'serfcx', 'f': 'drtgvc',
+    'g': 'ftyhbv', 'h': 'gyujnb', 'j': 'huikmn', 'k': 'jiolm',
+    'l': 'kop', 'z': 'asx', 'x': 'zsdc', 'c': 'xdfv', 'v': 'cfgb',
+    'b': 'vghn', 'n': 'bhjm', 'm': 'njk'
+}
 
-def ms_per_char_for_wpm(wpm):
-    if wpm < 1:
-        wpm = 1
-    return 60000.0 / (wpm * 5.0)
+def get_nearby_key(c):
+    c_lower = c.lower()
+    if c_lower in NEARBY_KEYS:
+        return random.choice(NEARBY_KEYS[c_lower])
+    return chr(ord('a') + random.randint(0, 25))
 
-def cap_jitter_for_wpm(wpm, jpct):
-    if wpm >= 140 and jpct > 0.08:
-        return 0.08
-    return jpct
-
-def preprocess_text(in_text):
-    """
-    Non-code mode newline handling:
-    newlineMode 0 = keep,
-    1 = replace with space,
-    2 = remove.
-    """
-    global newlineMode
-    if newlineMode == 0:
-        return in_text
-    out = []
-    for c in in_text:
-        if c in ("\r", "\n"):
-            if newlineMode == 1:
-                out.append(" ")
-            # if mode 2 => drop entirely
+def press_key(c, hold_ms):
+    """Press and release a key with given hold time."""
+    try:
+        if c == '\n':
+            keyboard.press(Key.enter)
+            time.sleep(hold_ms / 1000)
+            keyboard.release(Key.enter)
         else:
-            out.append(c)
-    return "".join(out)
+            keyboard.press(c)
+            time.sleep(hold_ms / 1000)
+            keyboard.release(c)
+    except:
+        pass
 
-def coop_sleep(ms):
-    """Sleep cooperatively, honoring pause/stop flags."""
-    global typingActive, paused
-    end = time.time() + ms / 1000.0
-    while time.time() < end:
-        with state_lock:
-            if not typingActive:
-                return
-            local_paused = paused
-        if local_paused:
-            # stay paused until unpaused or stopped
-            while True:
-                time.sleep(0.01)
-                with state_lock:
-                    if not typingActive or not paused:
-                        break
-            if not typingActive:
-                return
-        time.sleep(0.003)
-
-def send_char(c):
-    """Simulate typing a character or newline."""
-    if c == "\n":
-        keyboard.press(Key.enter)
-        keyboard.release(Key.enter)
-    else:
-        keyboard.press(c)
-        keyboard.release(c)
-
-def send_backspace():
+def press_backspace(hold_ms):
     keyboard.press(Key.backspace)
+    time.sleep(hold_ms / 1000)
     keyboard.release(Key.backspace)
 
-# ---------- Typing engine (port of your typeLikeHuman) ----------
-def type_like_human(raw_text):
-    global typingActive, paused, typedChars, consecutiveMistakeCount
+def sleep_check(ms):
+    """Sleep while checking for stop/pause."""
+    global typing_active, is_paused
+    end_time = time.time() + ms / 1000
+    
+    while time.time() < end_time:
+        with lock:
+            if not typing_active:
+                return False
+            if is_paused:
+                # Wait while paused
+                while is_paused and typing_active:
+                    time.sleep(0.05)
+                with lock:
+                    if not typing_active:
+                        return False
+        time.sleep(0.005)
+    return True
 
-    # snapshot codeMode once (as in your sketch)
-    with state_lock:
-        local_code_mode = codeMode
-
-    if not raw_text:
-        with state_lock:
-            typingActive = False
-            paused = False
+# ---------- Main Typing Function ----------
+def type_text(text):
+    global typing_active, is_paused, typed_count, profile, target_wpm
+    
+    if not text:
         return
-
-    # Build text based on codeMode
-    if not local_code_mode:
-        text = preprocess_text(raw_text)
-    else:
-        # Code mode: strip ALL leading whitespace per line, preserve newlines
-        raw = raw_text
-        N = len(raw)
-        res = []
-        start_of_line = True
-        i = 0
-        while i < N:
-            c = raw[i]
-            if c == "\r":
-                # Normalize CRLF / CR to '\n'
-                if i + 1 < N and raw[i+1] == "\n":
-                    i += 1
-                res.append("\n")
-                start_of_line = True
-            elif c == "\n":
-                res.append("\n")
-                start_of_line = True
-            else:
-                if start_of_line and c.isspace():
-                    # drop leading whitespace
-                    pass
-                else:
-                    res.append(c)
-                    start_of_line = False
-            i += 1
-        text = "".join(res)
-
-    N = len(text)
-    if N == 0:
-        with state_lock:
-            typingActive = False
-            paused = False
-        return
-
-    with state_lock:
-        typingActive = True
-        paused = False
-        typedChars = 0
-        consecutiveMistakeCount = 0
-
-    MIN_DELAY = 6.0
-    CORR_LIMIT = 0.5
-    start_ms = time.time() * 1000.0
-
-    i = 0
-    while True:
-        with state_lock:
-            if not typingActive:
+    
+    # Preprocess based on mode
+    if code_mode:
+        # Strip leading whitespace per line, keep newlines
+        lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+        text = '\n'.join(line.lstrip() for line in lines)
+    elif newline_mode == 1:
+        text = text.replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ')
+    elif newline_mode == 2:
+        text = text.replace('\r\n', '').replace('\n', '').replace('\r', '')
+    
+    with lock:
+        typing_active = True
+        is_paused = False
+        typed_count = 0
+        current_wpm = target_wpm
+    
+    prev_char = ''
+    consecutive_typos = 0
+    
+    for i, char in enumerate(text):
+        with lock:
+            if not typing_active:
                 break
-            curWPM = clamp_int(configuredWPM, 1, 300)
-            local_jitter = clamp_int(jitterStrengthPct, 5, 45) / 100.0
-            local_jitter = cap_jitter_for_wpm(curWPM, local_jitter)
-            local_strict = strictWPM
-            local_think = thinkingSpaceChance
-            local_enableTypos = enableTypos
-            local_enableLongPauses = enableLongPauses
-            local_longPausePercent = longPausePercent
-            local_longPauseMin = longPauseMinMs
-            local_longPauseMax = longPauseMaxMs
-            local_extraPunctPause = extraPunctPause
-            local_mistakePercent = mistakePercent
-            local_consLimit = consecutiveMistakeLimit
-            local_consCount = consecutiveMistakeCount
-
-        if i >= N:
-            break
-
-        c = text[i]
-
-        # Timing calculation (same idea as ESP32 loop)
-        now_ms = time.time() * 1000.0
-        elapsed = now_ms - start_ms
-        base_ms = ms_per_char_for_wpm(curWPM)
-        remaining = N - i
-        if remaining <= 0:
-            remaining = 1
-        ideal_elapsed = i * base_ms
-        error = elapsed - ideal_elapsed
-        correction = -error / remaining
-        if correction > base_ms * CORR_LIMIT:
-            correction = base_ms * CORR_LIMIT
-        if correction < -base_ms * CORR_LIMIT:
-            correction = -base_ms * CORR_LIMIT
-        next_delay = base_ms + correction
-        if next_delay < MIN_DELAY:
-            next_delay = MIN_DELAY
-
-        jitter_factor = 1.0 + (random.uniform(-1.0, 1.0) * local_jitter)
-        next_delay *= jitter_factor
-        if next_delay < MIN_DELAY:
-            next_delay = MIN_DELAY
-
-        # In code mode path, we already normalized CRLF to '\n'
-        if local_code_mode and c == "\n":
-            send_char("\n")
-            coop_sleep(next_delay)
-            with state_lock:
-                typedChars = i + 1
-            i += 1
-            continue
-
-        is_space = (c == " ")
-        is_punct = (c in ".!,?;:")
-
-        # Long pause at spaces
-        if (not local_strict and local_enableLongPauses and is_space and
-                random.randint(0, 99) < local_longPausePercent):
-            coop_sleep(random.randint(local_longPauseMin, local_longPauseMax))
-
-        # Decide typo
-        alnum = c.isalnum()
-        makeTypo = (not local_strict and local_enableTypos and
-                    random.randint(0, 99) < local_mistakePercent and alnum)
-
-        # Respect consecutive mistake limit
-        if makeTypo:
-            if local_consLimit <= 0 or local_consCount >= local_consLimit:
-                makeTypo = False
-
-        if makeTypo:
-            # Wrong char, backspace, correct char (same pattern as ESP32)
-            wrong_char = chr(ord("a") + random.randint(0, 25))
-            if c.isupper():
-                wrong_char = wrong_char.upper()
-
-            send_char(wrong_char)
-            coop_sleep(max(60, int(next_delay)))
-            send_backspace()
-            coop_sleep(random.randint(110, 380))
-            send_char(c)
-            coop_sleep(max(20, min(800, int(next_delay * 0.5) + random.randint(20, 120))))
-            with state_lock:
-                consecutiveMistakeCount = local_consCount + 1
+            current_wpm = target_wpm  # Get latest WPM
+        
+        # Calculate timing using profile
+        if profile.calibrated:
+            hold_time = profile.get_hold_time(current_wpm)
+            
+            if char == ' ':
+                flight_time = profile.get_space_pause(current_wpm)
+            elif char in '.!?,;:':
+                flight_time = profile.get_punct_pause(current_wpm)
+            elif char == '\n':
+                flight_time = profile.get_punct_pause(current_wpm) * 1.5
+            else:
+                flight_time = profile.get_flight_time(prev_char, char, current_wpm)
         else:
-            with state_lock:
-                consecutiveMistakeCount = 0
-            send_char(c)
-            extra = 0
-            if not local_strict:
-                if is_space:
-                    extra += random.randint(40, 140)
-                if local_extraPunctPause and is_punct:
-                    extra += random.randint(80, 220)
-                if c in ("\n", "\r"):
-                    extra += random.randint(120, 320)
-            coop_sleep(next_delay + extra)
+            # Default timing based on WPM
+            ms_per_char = 60000 / (current_wpm * 5)
+            hold_time = random.gauss(80, 20)
+            flight_time = ms_per_char + random.gauss(0, ms_per_char * 0.2)
+            
+            if char == ' ':
+                flight_time *= 1.3
+            elif char in '.!?,;:':
+                flight_time *= 2.0
+        
+        # Wait before typing
+        if not sleep_check(flight_time):
+            break
+        
+        # Decide if making a typo
+        make_typo = False
+        if enable_typos and char.isalpha() and consecutive_typos < 1:
+            if random.random() * 100 < typo_percent:
+                make_typo = True
+        
+        if make_typo:
+            # Type wrong key
+            wrong = get_nearby_key(char)
+            if char.isupper():
+                wrong = wrong.upper()
+            press_key(wrong, hold_time)
+            
+            # Notice delay
+            if not sleep_check(random.uniform(120, 280)):
+                break
+            
+            # Backspace
+            press_backspace(random.uniform(50, 90))
+            
+            # Correction delay
+            if not sleep_check(random.uniform(80, 200)):
+                break
+            
+            # Correct key
+            press_key(char, hold_time)
+            consecutive_typos += 1
+        else:
+            press_key(char, hold_time)
+            consecutive_typos = 0
+        
+        prev_char = char
+        with lock:
+            typed_count = i + 1
+    
+    with lock:
+        typing_active = False
+        is_paused = False
 
-        # Thinking pause after spaces
-        if (not local_strict and is_space and local_think > 0 and
-                random.randint(0, local_think) == 0):
-            coop_sleep(random.randint(400, 1000))
-
-        with state_lock:
-            typedChars = i + 1
-
-        i += 1
-
-    with state_lock:
-        typingActive = False
-        paused = False
-    # small tail pause
-    coop_sleep(120 + random.randint(0, 300))
-
-# ---------- HTTP handlers ----------
+# ---------- HTTP Endpoints ----------
 @app.route("/")
-def root():
-    # Optional: local test UI placeholder
-    return Response(
-        "Laptop Typist helper is running. Use the web UI to control it.",
-        mimetype="text/plain"
-    )
+def index():
+    return "Laptop Typist Helper Running. Open the Web UI to control."
 
 @app.route("/status")
-def handle_status():
-    with state_lock:
-        s = {
-            "ble": True,  # always "connected" in this software version
-            "wpm": configuredWPM,
-            "strict": strictWPM,
-            "jitter": jitterStrengthPct,
-            "think": thinkingSpaceChance,
-            "typos": enableTypos,
-            "lpen": enableLongPauses,
-            "nl": newlineMode,
-            "codemode": codeMode,
-            "typed": int(typedChars),
-            "running": typingActive,
-            "paused": paused,
-            "mistakePct": mistakePercent,
-            "cons": consecutiveMistakeLimit,
-            "state": "Typing..." if typingActive else "Ready."
-        }
-    return jsonify(s)
+def status():
+    with lock:
+        return jsonify({
+            "running": typing_active,
+            "paused": is_paused,
+            "typed": typed_count,
+            "wpm": target_wpm,
+            "calibrated": profile.calibrated,
+            "baseWpm": round(profile.base_wpm, 1) if profile.calibrated else None,
+            "typos": enable_typos,
+            "typoPct": typo_percent,
+            "newlineMode": newline_mode,
+            "codeMode": code_mode
+        })
+
+@app.route("/setwpm")
+def set_wpm():
+    global target_wpm
+    wpm = request.args.get("wpm", type=int)
+    if wpm is None:
+        return "Missing wpm", 400
+    with lock:
+        target_wpm = max(10, min(300, wpm))
+    return f"WPM set to {target_wpm}"
 
 @app.route("/config")
-def handle_config():
-    global configuredWPM, strictWPM, jitterStrengthPct, thinkingSpaceChance
-    global enableTypos, enableLongPauses, longPausePercent
-    global longPauseMinMs, longPauseMaxMs, newlineMode, codeMode
-    global consecutiveMistakeLimit, mistakePercent
-
-    changed = False
+def config():
+    global target_wpm, enable_typos, typo_percent, newline_mode, code_mode
+    
     args = request.args
-
-    with state_lock:
+    with lock:
         if "wpm" in args:
-            configuredWPM = clamp_int(int(args.get("wpm", 100)), 10, 300); changed = True
-        if "strict" in args:
-            strictWPM = (int(args.get("strict", 0)) != 0); changed = True
-        if "jitter" in args:
-            jitterStrengthPct = clamp_int(int(args.get("jitter", 12)), 5, 45); changed = True
-        if "think" in args:
-            thinkingSpaceChance = clamp_int(int(args.get("think", 0)), 0, 100); changed = True
+            target_wpm = max(10, min(300, int(args["wpm"])))
         if "typos" in args:
-            enableTypos = (int(args.get("typos", 1)) != 0); changed = True
-        if "lpen" in args:
-            enableLongPauses = (int(args.get("lpen", 1)) != 0); changed = True
-        if "lpc" in args:
-            longPausePercent = clamp_int(int(args.get("lpc", 5)), 0, 100); changed = True
-        if "lpmin" in args:
-            longPauseMinMs = clamp_int(int(args.get("lpmin", 600)), 50, 20000); changed = True
-        if "lpmax" in args:
-            longPauseMaxMs = clamp_int(int(args.get("lpmax", 1200)), 50, 30000); changed = True
+            enable_typos = args["typos"] == "1"
+        if "typoPct" in args:
+            typo_percent = max(0, min(20, int(args["typoPct"])))
         if "nl" in args:
-            newlineMode = clamp_int(int(args.get("nl", 1)), 0, 2); changed = True
+            newline_mode = max(0, min(2, int(args["nl"])))
         if "codemode" in args:
-            codeMode = (int(args.get("codemode", 0)) != 0); changed = True
-        if "cons" in args:
-            consecutiveMistakeLimit = clamp_int(int(args.get("cons", 1)), 0, 10); changed = True
-        if "mistakePct" in args:
-            mistakePercent = clamp_int(int(args.get("mistakePct", 3)), 0, 100); changed = True
+            code_mode = args["codemode"] == "1"
+    
+    return "OK"
 
-        if longPauseMinMs > longPauseMaxMs:
-            longPauseMinMs, longPauseMaxMs = longPauseMaxMs, longPauseMinMs
-
-    return (
-        "Config updated" if changed else "No changes",
-        200 if changed else 400,
-        {"Content-Type": "text/plain"}
-    )
-
-@app.route("/livewpm")
-def handle_livewpm():
-    global configuredWPM
-    w = request.args.get("wpm")
-    if w is None:
-        return ("No wpm provided", 400, {"Content-Type": "text/plain"})
-    with state_lock:
-        configuredWPM = clamp_int(int(w), 1, 200)
-        v = configuredWPM
-    return (f"Live WPM set to {v}", 200, {"Content-Type": "text/plain"})
+@app.route("/calibrate", methods=["POST", "OPTIONS"])
+def calibrate():
+    global profile
+    
+    if request.method == "OPTIONS":
+        return "", 200
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return "No data", 400
+        
+        hold_times = data.get("holdTimes", [])
+        flight_times = data.get("flightTimes", [])
+        digraphs = data.get("digraphs", {})
+        
+        if len(hold_times) < 10 or len(flight_times) < 10:
+            return "Need more typing data (at least 20 characters)", 400
+        
+        with lock:
+            profile.hold_times = hold_times
+            profile.flight_times = flight_times
+            profile.digraph_times = digraphs
+            profile.compute_stats()
+            profile.calibrated = True
+        
+        return jsonify({
+            "success": True,
+            "baseWpm": round(profile.base_wpm, 1),
+            "holdMean": round(profile.hold_mean, 1),
+            "flightMean": round(profile.flight_mean, 1),
+            "digraphs": len([d for d in profile.digraph_times if isinstance(profile.digraph_times[d], (int, float))])
+        })
+    
+    except Exception as e:
+        return f"Error: {e}", 500
 
 @app.route("/type", methods=["POST"])
-def handle_type():
-    global typingActive, paused, typing_thread
-    with state_lock:
-        if typingActive:
-            return ("Busy: already typing", 409, {"Content-Type": "text/plain"})
-    body = request.data.decode("utf-8", errors="ignore")
-    if len(body) == 0:
-        return ("Empty body", 400, {"Content-Type": "text/plain"})
-
-    # worker thread
-    def runner(text):
+def type_endpoint():
+    global typing_thread, typing_active
+    
+    with lock:
+        if typing_active:
+            return "Already typing", 409
+    
+    text = request.data.decode("utf-8", errors="ignore")
+    if not text:
+        return "Empty text", 400
+    
+    def worker():
         try:
-            type_like_human(text)
+            type_text(text)
         except Exception as e:
-            print("Error in typing thread:", e)
+            print(f"Typing error: {e}")
         finally:
-            with state_lock:
-                typingActive = False
-                paused = False
-
-    with state_lock:
-        paused = False
-        typing_thread = threading.Thread(target=runner, args=(body,), daemon=True)
-        typing_thread.start()
-
-    return (f"Typing started ({len(body)} chars)", 200, {"Content-Type": "text/plain"})
+            with lock:
+                typing_active = False
+    
+    typing_thread = threading.Thread(target=worker, daemon=True)
+    typing_thread.start()
+    
+    return f"Started typing {len(text)} chars"
 
 @app.route("/stop")
-def handle_stop():
-    global typingActive, paused
-    with state_lock:
-        typingActive = False
-        paused = False
-    return ("Stop requested", 200, {"Content-Type": "text/plain"})
+def stop():
+    global typing_active, is_paused
+    with lock:
+        typing_active = False
+        is_paused = False
+    return "Stopped"
 
 @app.route("/pause")
-def handle_pause():
-    global paused
-    with state_lock:
-        if not typingActive:
-            return ("Not typing", 409, {"Content-Type": "text/plain"})
-        paused = not paused
-        p = paused
-    return ("Paused" if p else "Resumed", 200, {"Content-Type": "text/plain"})
+def pause():
+    global is_paused
+    with lock:
+        if not typing_active:
+            return "Not typing", 400
+        is_paused = not is_paused
+        return "Paused" if is_paused else "Resumed"
 
-# ---------- main ----------
+# ---------- Main ----------
 if __name__ == "__main__":
-    print("Laptop Typist helper running on http://0.0.0.0:5000")
-    print("Keep this window open while using the web UI.")
-    app.run(host="0.0.0.0", port=5000)
+    print("=" * 50)
+    print("  LAPTOP TYPIST - Human-like Typing")
+    print("=" * 50)
+    print("Server: http://0.0.0.0:5000")
+    print()
+    print("1. Open Web UI and calibrate your typing")
+    print("2. Set your desired WPM")
+    print("3. Paste text and click Type!")
+    print("=" * 50)
+    app.run(host="0.0.0.0", port=5000, threaded=True)

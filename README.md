@@ -229,7 +229,9 @@ Found a bug or have an idea? [Open an issue](https://github.com/poshithNandyala/
 
 ## 📄 License
 
-MIT License — Free to use, modify, and share.
+This project is licensed under the [MIT License](LICENSE).
+
+You are free to use, modify, and distribute this software.
 
 ---
 

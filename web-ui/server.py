@@ -13,6 +13,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 print(f"Web UI running at http://localhost:{PORT}")
 
-# IMPORTANT: bind only to localhost
-with socketserver.TCPServer(("127.0.0.1", PORT), Handler) as httpd:
+# Bind to all interfaces for remote access
+with socketserver.TCPServer(("0.0.0.0", PORT), Handler) as httpd:
     httpd.serve_forever()

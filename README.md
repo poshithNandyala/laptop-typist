@@ -96,8 +96,14 @@ On the **Target Laptop** (where typing will happen):
 On the **Control Laptop** (where YOU sit):
 
 1. Open your browser (Chrome, Edge, Firefox)
-2. Go to: `http://192.168.1.50:8000` *(use YOUR target's IP)*
-3. Set **Helper URL** to: `http://192.168.1.50:5000`
+2. Go to: `http://<TARGET_IP>:8000`  
+   Example: If the target laptop IPv4 address is **192.168.1.50**, then use:  
+   `http://192.168.1.50:8000`
+3. Set **Helper URL** to: `http://<TARGET_IP>:5000`  
+   Example: If the target laptop IPv4 address is **192.168.1.50**, then use:  
+   `http://192.168.1.50:5000`
+
+**Replace `<TARGET_IP>` with your target laptop's IPv4 address.**
 
 ---
 
@@ -133,17 +139,18 @@ On the **Target Laptop**:
 
 ## ⚙️ Settings Explained
 
-| Setting | What It Means | Recommended |
-|---------|---------------|-------------|
-| **WPM** | Words Per Minute — how fast it types | 80-120 for natural |
-| **Live WPM Slider** | Change speed while typing | Drag anytime |
-| **Strict WPM** | Exact timing, no natural variations | Keep OFF |
-| **Jitter** | Random speed variation (more = more human) | 10-15% |
-| **Enable Typos** | Makes realistic typing mistakes | ON for realism |
-| **Mistake %** | How often typos happen | 2-5% |
-| **Long Pauses** | Occasional thinking pauses | ON for realism |
-| **Newline Handling** | What happens with Enter/new lines | Your choice |
-| **Code Mode** | For typing code (ignores indentation) | ON for code |
+| Setting            | What It Means                                   | Recommended                         |
+|--------------------|--------------------------------------------------|-------------------------------------|
+| **WPM**            | Words Per Minute — how fast it types             | 80–120 for natural                  |
+| **Live WPM Slider**| Change speed while typing                         | Drag anytime                        |
+| **Strict WPM**     | Exact timing, no natural variations               | Keep OFF                            |
+| **Jitter**         | Random speed variation (more = more human)        | 10–15%                              |
+| **Enable Typos**   | Makes realistic typing mistakes                   | ON for realism                      |
+| **Mistake %**      | How often typos happen                            | 2–5%                                |
+| **Long Pauses**    | Occasional thinking pauses                        | ON for realism                      |
+| **Newline Handling** | Controls what Enter does (keep Enter while typing code) | **Keep Enter ON for code** |
+| **Code Mode**      | For typing code (ignores indentation)             | ON for code                         |
+
 
 ---
 
@@ -215,12 +222,15 @@ A: Yes! It only simulates keyboard typing. It doesn't access any files or intern
 A: Yes! Anywhere you can type — Word, Google Docs, code editors, chat apps, etc.
 
 **Q: Does it work on Mac/Linux?**  
-A: The typing engine works, but you'll need to run the Python files manually instead of using .bat files.
+A: The typing engine works, but you'll need to run the Python files manually instead of using `.bat` files. It works on Mac/Linux, but **Windows is preferable** for easier setup and automation.  
+I am currently **working on improving Mac/Linux support**.
+
 
 **Q: Can I adjust speed while it's typing?**  
 A: Yes! Use the "Live WPM" slider to change speed in real-time.
 
 ---
+> ⚠️ **Do not use this tool for online assessments or any unauthorized purposes.**
 
 ## 🤝 Contributing
 
